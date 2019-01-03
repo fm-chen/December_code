@@ -21,24 +21,28 @@ def get_desktop():
     return winreg.QueryValueEx(key, "Desktop")[0]
 
 #read raw data
-file_loc = r"%s\######.xlsx" %(get_desktop())   #raw data file
+file_loc = r"%s\BERNHARDT Containers.xlsx" %(get_desktop())
 df = pd.read_excel(file_loc, sheet_name='Schedule ')
 df['week_num'] =pd.to_datetime(df['Original ETA']).dt.week
 df['PLANT #'] = df['PLANT #'].fillna(0).apply(str)
 new = df['PLANT #'].str.split(',', expand=True).fillna(0)
-df['split0'] =new[0]
-df['split1'] =new[1]
-df['split2'] =new[2]
-df['split3'] =new[3]
+for i in range(len(new.iloc[0])):
+    column_name = 'split%s' %(i)
+    df[column_name] =new[i]
 
 def plant_report(plantnum,weeknum):
     df['PLANT_NUM'] = '%s' %(plantnum)
-    report = df.loc[((df['split0']==plantnum)|(df['split1']==plantnum)|
-                     (df['split2']==plantnum)|(df['split3']==plantnum)|
-                    (df['split0']==plantnum.upper())|(df['split1']==plantnum.upper())|
-                     (df['split2']==plantnum.upper())|(df['split3']==plantnum.upper()))
-                    &(df['week_num']==weeknum)]
-    return report.drop(columns=['split0','split1','split2','split3', 'week_num'])
+    logic_a = (df['split0']==plantnum)|(df['split0']==plantnum.upper())
+    for i in range(1,len(new.iloc[0])):
+        column_name = 'split%s' %(i)
+        logic_a = logic_a|(df[column_name]==plantnum)|(df[column_name]==plantnum.upper())
+    report = df.loc[logic_a &(df['week_num']==weeknum)]
+    report = report.drop(columns=['week_num'])
+    for j in range(0,len(new.iloc[0])):
+        column_name = 'split%s' %(j)
+        report = report.drop(columns=[column_name])
+    return report
+  
 def obtain_num(plantnum,weeknum):
     pt = plant_report(plantnum,weeknum)
     pt = pd.pivot_table(pt, index = 'PLANT_NUM',values = 'CONTAINER',aggfunc = 'count')
